@@ -37,6 +37,7 @@ def corner_impl(
     axes_scale="linear",
     weights=None,
     color=None,
+    color_1d=None,
     hist_bin_factor=1,
     smooth=None,
     smooth1d=None,
@@ -51,6 +52,7 @@ def corner_impl(
     quantile_style="dashed",
     truth_color="#4682b4",
     show_ylabels=True,
+    force_range_1d=False,
     scale_hist=False,
     quantiles=None,
     title_quantiles=None,
@@ -200,7 +202,7 @@ def corner_impl(
     # Set up the default histogram keywords.
     if hist_kwargs is None:
         hist_kwargs = dict()
-    hist_kwargs["color"] = hist_kwargs.get("color", color)
+    hist_kwargs["color"] = hist_kwargs.get("color", color_1d if color_1d is not None else color)
     if smooth1d is None:
         hist_kwargs["histtype"] = hist_kwargs.get("histtype", "step")
 
@@ -290,14 +292,14 @@ def corner_impl(
                     ax.set_title(title, **title_kwargs)
 
         # Set up the axes.
-        _set_xlim(force_range, new_fig, ax, range[i])
+        _set_xlim(force_range_1d, new_fig, ax, range[i])
         ax.set_xscale(axes_scale[i])
         if scale_hist:
             maxn = np.max(n)
-            _set_ylim(force_range, new_fig, ax, [-0.1 * maxn, 1.1 * maxn])
+            _set_ylim(force_range_1d, new_fig, ax, [-0.1 * maxn, 1.1 * maxn])
 
         else:
-            _set_ylim(force_range, new_fig, ax, [0, 1.1 * np.max(n)])
+            _set_ylim(force_range_1d, new_fig, ax, [0, 1.1 * np.max(n)])
 
         ax.set_yticklabels([])
         ax.xaxis.set_minor_locator(AutoMinorLocator())
