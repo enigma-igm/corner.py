@@ -6,6 +6,7 @@ __all__ = [
     "quantile",
     "overplot_lines",
     "overplot_points",
+    "overplot_hist",
 ]
 
 import copy
@@ -21,13 +22,14 @@ from matplotlib.ticker import (
     MaxNLocator,
     NullLocator,
     ScalarFormatter,
-    AutoMinorLocator,
 )
 
 try:
     from scipy.ndimage import gaussian_filter
 except ImportError:
     gaussian_filter = None
+
+from IPython import embed
 
 
 def corner_impl(
@@ -37,7 +39,6 @@ def corner_impl(
     axes_scale="linear",
     weights=None,
     color=None,
-    color_1d=None,
     hist_bin_factor=1,
     smooth=None,
     smooth1d=None,
@@ -48,11 +49,7 @@ def corner_impl(
     title_fmt=".2f",
     title_kwargs=None,
     truths=None,
-    quantile_color="#4682b4",
-    quantile_style="dashed",
     truth_color="#4682b4",
-    show_ylabels=True,
-    force_range_1d=False,
     scale_hist=False,
     quantiles=None,
     title_quantiles=None,
@@ -64,6 +61,7 @@ def corner_impl(
     reverse=False,
     labelpad=0.0,
     hist_kwargs=None,
+    no_fill_contours=False,
     **hist2d_kwargs,
 ):
     if quantiles is None:
@@ -202,7 +200,7 @@ def corner_impl(
     # Set up the default histogram keywords.
     if hist_kwargs is None:
         hist_kwargs = dict()
-    hist_kwargs["color"] = hist_kwargs.get("color", color_1d if color_1d is not None else color)
+    hist_kwargs["color"] = hist_kwargs.get("color", color)
     if smooth1d is None:
         hist_kwargs["histtype"] = hist_kwargs.get("histtype", "step")
 
@@ -250,7 +248,7 @@ def corner_impl(
         if len(quantiles) > 0:
             qvalues = quantile(x, quantiles, weights=weights)
             for q in qvalues:
-                ax.axvline(q, ls=quantile_style, color=quantile_color)
+                ax.axvline(q, ls="dashed", color=color)
 
             if verbose:
                 print("Quantiles:")
@@ -292,18 +290,16 @@ def corner_impl(
                     ax.set_title(title, **title_kwargs)
 
         # Set up the axes.
-        _set_xlim(force_range_1d, new_fig, ax, range[i])
+        _set_xlim(force_range, new_fig, ax, range[i])
         ax.set_xscale(axes_scale[i])
         if scale_hist:
             maxn = np.max(n)
-            _set_ylim(force_range_1d, new_fig, ax, [-0.1 * maxn, 1.1 * maxn])
+            _set_ylim(force_range, new_fig, ax, [-0.1 * maxn, 1.1 * maxn])
 
         else:
-            _set_ylim(force_range_1d, new_fig, ax, [0, 1.1 * np.max(n)])
+            _set_ylim(force_range, new_fig, ax, [0, 1.1 * np.max(n)])
 
         ax.set_yticklabels([])
-        ax.xaxis.set_minor_locator(AutoMinorLocator())
-        ax.yaxis.set_minor_locator(AutoMinorLocator())
         if max_n_ticks == 0:
             ax.xaxis.set_major_locator(NullLocator())
             ax.yaxis.set_major_locator(NullLocator())
@@ -387,6 +383,7 @@ def corner_impl(
                 bins=[bins[j], bins[i]],
                 new_fig=new_fig,
                 force_range=force_range,
+                no_fill_contours=no_fill_contours,
                 **hist2d_kwargs,
             )
 
@@ -450,8 +447,6 @@ def corner_impl(
                     else:
                         ax.set_ylabel(labels[i], **label_kwargs)
                         ax.yaxis.set_label_coords(-0.3 - labelpad, 0.5)
-                    if show_ylabels is False:
-                        ax.set_ylabel("")
 
                 # use MathText for axes ticks
                 if axes_scale[i] == "linear":
@@ -460,8 +455,6 @@ def corner_impl(
                     )
                 elif axes_scale[i] == "log":
                     ax.yaxis.set_major_formatter(LogFormatterMathtext())
-                if show_ylabels is False:
-                    ax.set_yticklabels([])
 
     if truths is not None:
         overplot_lines(fig, truths, reverse=reverse, color=truth_color)
@@ -476,7 +469,7 @@ def corner_impl(
     return fig
 
 
-def quantile(x, q, weights=None, axis=None):
+def quantile(x, q, weights=None):
     """
     Compute sample quantiles with support for weighted samples.
 
@@ -516,22 +509,17 @@ def quantile(x, q, weights=None, axis=None):
         raise ValueError("Quantiles must be between 0 and 1")
 
     if weights is None:
-        return np.percentile(x, list(100.0 * q), axis=axis)
+        return np.percentile(x, list(100.0 * q))
     else:
         weights = np.atleast_1d(weights)
-        if axis is None:
-            return _quantile(x, q, weights)
-
-
-def _quantile(x, q, weights):
-    if len(x) != len(weights):
-        raise ValueError("Dimension mismatch: len(weights) != len(x)")
-    idx = np.argsort(x)
-    sw = weights[idx]
-    cdf = np.cumsum(sw)[:-1]
-    cdf /= cdf[-1]
-    cdf = np.append(0, cdf)
-    return np.interp(q, cdf, x[idx]).tolist()
+        if len(x) != len(weights):
+            raise ValueError("Dimension mismatch: len(weights) != len(x)")
+        idx = np.argsort(x)
+        sw = weights[idx]
+        cdf = np.cumsum(sw)[:-1]
+        cdf /= cdf[-1]
+        cdf = np.append(0, cdf)
+        return np.interp(q, cdf, x[idx]).tolist()
 
 
 def hist2d(
@@ -549,7 +537,6 @@ def hist2d(
     plot_datapoints=True,
     plot_density=True,
     plot_contours=True,
-    plot_edges=True,
     no_fill_contours=False,
     fill_contours=False,
     contour_kwargs=None,
@@ -579,9 +566,6 @@ def hist2d(
 
     levels : array_like
         The contour levels to draw.
-        If None, (0.5, 1, 1.5, 2)-sigma equivalent contours are drawn,
-        i.e., containing 11.8%, 39.3%, 67.5% and 86.4% of the samples.
-        See https://corner.readthedocs.io/en/latest/pages/sigmas/
 
     ax : matplotlib.Axes
         A axes instance on which to add the 2-D histogram.
@@ -809,18 +793,17 @@ def hist2d(
         ax.pcolor(X, Y, H.max() - H.T, cmap=density_cmap, **pcolor_kwargs)
 
     # Plot the contour edge colors.
-    if plot_contours and plot_edges:
+    if plot_contours:
         if contour_kwargs is None:
             contour_kwargs = dict()
-        contour_kwargs["colors"] = [contour_kwargs.get("colors", color)]
-        ax.contour(X2, Y2, H2.T, V, **contour_kwargs)
+        contour_kwargs["colors"] = contour_kwargs.get("colors", color)
+        cset = ax.contour(X2, Y2, H2.T, V, **contour_kwargs)
+        # ax.clabel(cset, inline=1, fontsize=10)
 
     _set_xlim(force_range, new_fig, ax, range[0])
     _set_ylim(force_range, new_fig, ax, range[1])
     ax.set_xscale(axes_scale[0])
     ax.set_yscale(axes_scale[1])
-    ax.xaxis.set_minor_locator(AutoMinorLocator())
-    ax.yaxis.set_minor_locator(AutoMinorLocator())
 
 
 def overplot_lines(fig, xs, reverse=False, **kwargs):
@@ -908,6 +891,18 @@ def overplot_points(fig, xs, reverse=False, **kwargs):
             for k2 in range(k1 + 1, K):
                 axes[k2, k1].plot(xs[k1], xs[k2], **kwargs)
 
+def overplot_hist(fig, xs, ranges=None, reverse=False, **kwargs):
+    """
+    Overplot 1d histograms on the diagnal of the figure generated by ``corner.corner``
+    """
+    xs = _parse_input(xs)
+    K = len(xs)
+    axes, _ = _get_fig_axes(fig, K)
+    for k1 in range(K):
+        if reverse:
+            axes[K - k1 - 1, K - k1 - 1].hist(xs[k1], range=ranges[k1], **kwargs)
+        else:
+            axes[k1, k1].hist(xs[k1], range=ranges[k1], **kwargs)
 
 def _parse_input(xs):
     xs = np.atleast_1d(xs)

@@ -45,6 +45,7 @@ def corner(
     reverse=False,
     labelpad=0.0,
     hist_kwargs=None,
+    no_fill_contours=False,
     # Arviz parameters
     group="posterior",
     var_names=None,
@@ -274,6 +275,7 @@ def corner(
             reverse=reverse,
             labelpad=labelpad,
             hist_kwargs=hist_kwargs,
+            no_fill_contours=no_fill_contours,
             **hist2d_kwargs,
         )
 
@@ -313,5 +315,6 @@ def corner(
         divergences=divergences,
         divergences_kwargs=divergences_kwargs,
         labeller=labeller,
+        no_fill_contours=no_fill_contours,
         **hist2d_kwargs,
     )
