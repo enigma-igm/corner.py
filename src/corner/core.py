@@ -925,7 +925,7 @@ def overplot_covar(fig, xs, covars, sigma=1, reverse=False, **kwargs):
     if reverse:
         for k1 in range(K):
             for k2 in range(k1):
-                axes[K - k1 - 1, K - k2 - 1].plot(xs[k2], xs[k1], **kwargs)
+                # axes[K - k1 - 1, K - k2 - 1].plot(xs[k2], xs[k1], **kwargs)
                 for i in range(K):
                     xc, yc = xs[k2, i], xs[k1, i]
                     cov = np.array([[covars[i, k2, k2], covars[i, k2, k1]],
@@ -942,7 +942,7 @@ def overplot_covar(fig, xs, covars, sigma=1, reverse=False, **kwargs):
     else:
         for k1 in range(K):
             for k2 in range(k1 + 1, K):
-                axes[k2, k1].plot(xs[k1], xs[k2], **kwargs)
+                # axes[k2, k1].plot(xs[k1], xs[k2], **kwargs)
                 for i in range(nsamples):
                     xc, yc = xs[k1, i], xs[k2, i]
                     cov = np.array([[covars[i, k1, k1], covars[i, k1, k2]],
